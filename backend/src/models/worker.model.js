@@ -15,6 +15,12 @@ const workerSchema = new mongoose.Schema(
       match: [/^[6-9]\d{9}$/, "Please enter a valid phone number"],
     },
 
+      user: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: "Auth",
+    required: true
+  },
+
     // Worker can have multiple skills
     skill_types: {
       type: [String],
@@ -22,7 +28,6 @@ const workerSchema = new mongoose.Schema(
       required: true,
     },
 
-    
     // ID / KYC details
     verification_documents: {
       aadhar_number: {
@@ -66,25 +71,25 @@ const workerSchema = new mongoose.Schema(
           type: mongoose.Schema.Types.ObjectId,
           ref: "Ticket",
         },
-        
+
         photo_url: {
           type: String,
         },
       },
     ],
-    
+
     completed_tickets: {
       type: Number,
       default: 0,
     },
-    
+
     // Verification status
     verification_status: {
       type: String,
       enum: ["unverified", "pending", "verified", "rejected"],
       default: "unverified",
     },
-    
+
     profile_status: {
       type: String,
       enum: ["incomplete", "completed"],

@@ -1,10 +1,15 @@
 const express = require("express");
 const workerController = require("./worker.controller");
+const authMiddleware = require("../../middleware/auth.middleware");
+
 const routes = express.Router();
 
-routes.post("/workerprofile/:worker_id" , workerController.WorkerProfile);
-routes.get("/workerticket/:worker_id" , workerController.Workerticket);
-routes.post("/accept-ticket/:wid/:tid" , workerController.AcceptTicket);
-routes.put("/worker/:worker_id/skills", workerController.UpdateWorkerSkills);
+routes.get("/workerprofile" , authMiddleware , workerController.WorkerProfile)
+routes.get("/workerdashboard" , authMiddleware , workerController.WorkerDashboard)
+routes.post("/editprofile",authMiddleware , workerController.EditProfile);
+routes.get("/pendingticket" ,authMiddleware, workerController.WorkerPendingTickets);
+routes.get("/activeticket" ,authMiddleware, workerController.WorkerActiveTickets);
+routes.post("/accept-ticket/:tid" ,authMiddleware, workerController.AcceptTicket);
+routes.put("/workerskills",authMiddleware, workerController.UpdateWorkerSkills);
 
 module.exports = routes;

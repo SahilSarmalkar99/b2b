@@ -1,5 +1,8 @@
 const AuthModel = require("../../models/auth.model");
 const OtpModel = require("../../models/otp.model");
+const WorkerModel = require("../../models/worker.model");
+const OwnerModel = require("../../models/owner.model");
+
 const jwt = require("jsonwebtoken");
 
 async function sendOtp(req, res) {
@@ -26,10 +29,10 @@ async function sendOtp(req, res) {
 
     res.status(200).json({
       message: "OTP sent successfully",
-      otp : otp
+      otp: otp,
     });
   } catch (error) {
-    console.log(error)
+    console.log(error);
     res.status(500).json({
       message: "Internal Server Error",
     });
@@ -46,7 +49,6 @@ async function userRegister(req, res) {
       });
     }
 
-    // Only allow user or worker
     if (!["user", "worker"].includes(role)) {
       return res.status(400).json({
         message: "Invalid role",
@@ -81,6 +83,32 @@ async function userRegister(req, res) {
       role,
     });
 
+    let profileCompleted = false;
+    let profileType = "";
+
+    if (role === "worker") {
+      const worker = await WorkerModel.create({
+        user: newUser._id,
+        name: username,
+        phone,
+        skill_types: [],
+      });
+
+      profileCompleted = worker.profileCompleted || false;
+      profileType = "worker";
+    }
+
+    if (role === "user") {
+      const owner = await OwnerModel.create({
+        user: newUser._id,
+        name: username,
+        phone,
+      });
+
+      profileCompleted = owner.profileCompleted || false;
+      profileType = "owner";
+    }
+
     await OtpModel.deleteOne({ phone });
 
     const token = jwt.sign(
@@ -89,7 +117,7 @@ async function userRegister(req, res) {
         role: newUser.role,
       },
       process.env.SECRET_KEY,
-      { expiresIn: "7d" },
+      { expiresIn: "7d" }
     );
 
     res.cookie("token", token);
@@ -97,10 +125,13 @@ async function userRegister(req, res) {
     res.status(201).json({
       message: "User registered successfully",
       user: newUser,
-      token : token
+      token,
+      profileCompleted,
+      profileType,
     });
+
   } catch (error) {
-    console.log(error)
+    console.log(error);
     res.status(500).json({
       message: "Internal Server Error",
     });
@@ -119,7 +150,7 @@ async function userLogin(req, res) {
 
     const otpDoc = await OtpModel.findOne({ phone });
 
-    if (!otpDoc || otpDoc.otp !== otp) {
+    if (!otpDoc || String(otpDoc.otp) !== String(otp)) {
       return res.status(400).json({
         message: "Invalid OTP",
       });
@@ -139,6 +170,25 @@ async function userLogin(req, res) {
       });
     }
 
+    let profileCompleted = false;
+    let profileType = "";
+
+    // Worker Login
+    if (user.role === "worker") {
+      const worker = await WorkerModel.findOne({ user: user._id });
+
+      profileCompleted = worker?.profile_status === "complete";
+      profileType = "worker";
+    }
+
+    // Owner Login
+    if (user.role === "user") {
+      const owner = await OwnerModel.findOne({ user: user._id });
+
+      profileCompleted = owner?.profile_status === "complete";
+      profileType = "owner";
+    }
+
     await OtpModel.deleteOne({ phone });
 
     const token = jwt.sign(
@@ -147,18 +197,22 @@ async function userLogin(req, res) {
         role: user.role,
       },
       process.env.SECRET_KEY,
-      { expiresIn: "7d" },
+      { expiresIn: "7d" }
     );
-    
+
     res.cookie("token", token);
-    
+
     res.status(200).json({
       message: "User Logged In Successfully",
       user,
-      token : token
+      token,
+      profileCompleted,
+      profileType,
     });
+
   } catch (error) {
-    console.log(error)
+    console.log(error);
+
     res.status(500).json({
       message: "Internal Server Error",
     });

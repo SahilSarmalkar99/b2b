@@ -1,11 +1,21 @@
 const OwnerModel = require("../../models/owner.model");
 const OtpModel = require("../../models/otp.model");
 const TicketModel = require("../../models/ticket.model");
+const SocietyModel = require("../../models/society.model");
+const FlatModel = require("../../models/flat.model");
 const mongoose = require("mongoose");
 
 async function OwnerProfile(req, res) {
   try {
-    const { oid } = req.params;
+    
+    const owner_id = req.user.id;
+    const owner = await OwnerModel.findById({user : owner_id});
+
+    res.status(201).json({
+      message : "Owner Info",
+      data : owner
+    });
+
   } catch (error) {
     res.status(500).json({
       message: " Internal Server Error ",
@@ -18,7 +28,7 @@ async function ProfileEdit(req, res) {
     const owner_id = req.user.id;
     const { name, phone } = req.body;
 
-    const owner = await OwnerModel.findById(owner_id);
+    const owner = await OwnerModel.findById({user : owner_id});
 
     if (!owner) {
       return res.status(404).json({
@@ -86,7 +96,7 @@ async function VerifyPhoneChange(req, res) {
       });
     }
 
-    const owner = await OwnerModel.findById(owner_id);
+    const owner = await OwnerModel.findById({user : owner_id});
 
     owner.phone = phone;
 
@@ -162,9 +172,189 @@ async function OwnerDashboard(req, res) {
   }
 }
 
+async function GetAllSocieties(req, res) {
+  try {
+
+    const societies = await SocietyModel.find();
+
+    res.status(200).json({
+      success: true,
+      message: "Societies fetched successfully",
+      societies
+    });
+
+  } catch (error) {
+
+    res.status(500).json({
+      message: "Internal Server Error"
+    });
+
+  }
+}
+
+async function AddSocietyToOwner(req, res) {
+  try {
+
+    const owner_id = req.user.id;
+    const { society_id } = req.body;
+
+    const owner = await OwnerModel.findOne({ user: owner_id });
+
+    const alreadyAdded = owner.societies.find(
+      s => s.society.toString() === society_id
+    );
+
+    if (alreadyAdded) {
+      return res.status(400).json({
+        message: "Society already added"
+      });
+    }
+
+    owner.societies.push({
+      society: society_id,
+      flats: []
+    });
+
+    await owner.save();
+
+    res.status(200).json({
+      success: true,
+      message: "Society added successfully",
+      owner
+    });
+
+  } catch (error) {
+    console.log
+    res.status(500).json({
+      message: "Internal Server Error"
+    });
+
+  }
+}
+
+async function GetOwnerSocieties(req, res) {
+  try {
+
+    const owner_id = req.user.id;
+
+    const owner = await OwnerModel.findOne({ user: owner_id })
+      .populate("societies.society");
+
+    res.status(200).json({
+      success: true,
+      societies: owner.societies
+    });
+
+  } catch (error) {
+
+    res.status(500).json({
+      message: "Internal Server Error"
+    });
+
+  }
+}
+
+
+async function AddFlat(req, res) {
+  try {
+
+    const owner_id = req.user.id;
+    const { society_id, flat_number } = req.body;
+
+    const owner = await OwnerModel.findOne({ user: owner_id });
+
+    if (!owner) {
+      return res.status(404).json({
+        message: "Owner not found"
+      });
+    }
+
+    const society = owner.societies.find(
+      s => s.society.toString() === society_id
+    );
+
+    if (!society) {
+      return res.status(404).json({
+        message: "Society not found in owner profile"
+      });
+    }
+
+    const existingFlat = await FlatModel.findOne({
+      society: society_id,
+      flat_number
+    });
+
+    if (existingFlat) {
+      return res.status(400).json({
+        message: "Flat already registered"
+      });
+    }
+
+    const flat = await FlatModel.create({
+      society: society_id,
+      flat_number
+    });
+
+    society.flats.push(flat._id);
+
+    // ✅ Mark profile as complete when first flat is added
+    if (owner.profile_status === "incomplete") {
+      owner.profile_status = "complete";
+    }
+
+    await owner.save();
+
+    res.status(201).json({
+      success: true,
+      message: "Flat added successfully",
+      profile_status: owner.profile_status,
+      flat
+    });
+
+  } catch (error) {
+
+    console.log(error);
+
+    res.status(500).json({
+      message: "Internal Server Error"
+    });
+
+  }
+}
+
+async function GetSocietyFlats(req, res) {
+  try {
+
+    const { society_id } = req.params;
+
+    const flats = await FlatModel.find({
+      society: society_id
+    });
+
+    const flatNumbers = flats.map(f => f.flat_number);
+
+    res.status(200).json({
+      success: true,
+      flats: flatNumbers
+    });
+
+  } catch (error) {
+
+    res.status(500).json({
+      message: "Internal Server Error"
+    });
+
+  }
+}
+
 module.exports = {
   OwnerProfile,
   ProfileEdit,
   VerifyPhoneChange,
   OwnerDashboard,
+  GetAllSocieties,
+  AddSocietyToOwner,
+  GetOwnerSocieties,
+  AddFlat,
+  GetSocietyFlats
 };
